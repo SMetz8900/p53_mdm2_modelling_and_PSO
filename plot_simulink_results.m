@@ -5,6 +5,7 @@ simOut = sim("PSO_p53_mdm2_simulation.slx");
 t = simOut.get("tout");      % Time vector
 p53 = simOut.get("p53_data");   % p53 concentration data
 Mdm2 = simOut.get("Mdm2_data");    % Mdm2 concentration data
+save("theoreticalModelData.mat","t","p53","Mdm2");
 
 close_system("p53_mdm2_simulation_simulink.slx",0);
 
