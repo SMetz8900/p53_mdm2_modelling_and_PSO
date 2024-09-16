@@ -1,3 +1,5 @@
+% Code to run the p53 model (build in simulink) with parameter values as specified by the authors (found in params.m file) and plot the results. 
+
 params;
 
 load_system("PSO_p53_mdm2_simulation.slx");
