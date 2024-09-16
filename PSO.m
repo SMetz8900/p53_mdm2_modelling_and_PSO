@@ -1,26 +1,35 @@
-load("theoreticalModelData.mat")
+% Matlab code to run PSO for parameter estimation of the p53 model including
+% time delay
+% (as found in: Eliaš,J.;Macnamara,C.K. Mathematical Modelling of p53 Signalling during DNA Damage Response: A Survey. Int. J. Mol. Sci. 2021,22,10590. https://doi.org/ 10.3390/ijms221910590)
+
+% load data from "theoretical model" and initial parameter values (as
+% specified in paper) 
+params;
+load("theoreticalModelData.mat");
 
 % PSO parameter init
-N = 30; % no. of particiles
-max_iterations = 100;
-w = 0.5; % inertia weight 
-c1 = 1.5; % cognitive constant;
-c2 = 1.5; % Social constant 
+N = 30; % no. of particles
+max_iterations = 100; % no. of max. iterations
+w = 0.5; % inertia weight -> trade-off param. for global exploration & local exploitation
+c1 = 1.5; % cognitive constant -> controls influence of individual best position for updates
+c2 = 1.5; % social constant -> controls influence of global best position for updates
 
-% Bounds of params (e.g. [k1, k2, tau])
+% Bounds of params (e.g. here for [k1, k2, tau])
 lb = [0.1,0.1,0.1];
 ub = [5,5,10];
 
 % initialize particle positions & velocities
-positions = lb + (ub-lb).*rand(N,3); % random positions 
+positions = lb + (ub-lb).*rand(N,3);
 velocities = zeros(N,3);
-pBest = positions; % initial personal best positions 
-gBest = positions(1,:); % initial global best position
+pBest = positions; 
+gBest = positions(1,:);
 pBest_fitness = inf(N,1);
 gBest_fitness = inf;
 
+% value to keep track of mse over PSO iterations
 mse_history = zeros(max_iterations, 1);
 
+% set up for plotting mse
 figure;
 hPlot = plot(1:max_iterations, mse_history, "LineWidth", 2);
 xlabel("Iteration");
@@ -28,8 +37,6 @@ ylabel("Best MSE");
 title("PSO optimization - MSE development");
 grid on;
 hold on;
-
-
 
 % PSO Loop 
 for iter = 1:max_iterations
@@ -50,43 +57,51 @@ for iter = 1:max_iterations
         p53_sim = simOut.get("p53_data");   % p53 concentration data    
         Mdm2_sim = simOut.get("Mdm2_data");    % Mdm2 concentration data
         
+        % interpolate data from theoretical model to match simulation time
+        % points
         p53_theory_interpol = interp1(t, p53, t_sim);
         Mdm2_theory_interpol = interp1(t, Mdm2, t_sim);
-
+        
+        % calculate MSE (as a measure for fitness) 
         mse_p53 = mean((p53_sim - p53_theory_interpol).^2);
         mse_mdm2 = mean((Mdm2_sim - Mdm2_theory_interpol).^2);
         fitness = mse_p53 + mse_mdm2;
 
-        if fitness < pBest_fitness(i)
+        % update personal best 
+        if fitness < pBest_fitness(i) 
             pBest_fitness(i) = fitness;
             pBest(i, :) = positions(i, :);
         end
-
+        
+        % update global best
         if fitness < gBest_fitness
             gBest_fitness = fitness;
             gBest = positions(i, :);
         end
     end
-
+    
+    % plot MSE over iterations
     mse_history(iter) = gBest_fitness;
-
     set(hPlot, "YData", mse_history(1:iter));
     set(hPlot, "XData", 1:iter);
     drawnow;
 
+    % update velocities & positions
     r1 = rand(N,3);
     r2 = rand(N,3);
     velocities = w*velocities + c1*r1.*(pBest - positions) + c2*r2.*(gBest - positions);
     positions = positions + velocities;
 
+    % enforce defined param. bounds 
     positions = max(min(positions, ub), lb);
 
+    % Print iteration number and best fitness (so far) 
     fprintf("Iteration %d: Best MSE = %f\n", iter, gBest_fitness)
-
-    if gBest_fitness < 1e-6;
+    
+    % convergence check 
+    if gBest_fitness < 1e-6
         break
     end 
 end
 
 fprintf("Optimal parameters:\n k1 = %f\n k2 = %f\n, tau = %f\n", gBest(1), gBest(2), gBest(3));
-
